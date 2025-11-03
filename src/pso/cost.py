@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np, matplotlib.pyplot as plt
 from matplotlib.axes import Axes
-from typing import Tuple, List, Literal
+from typing import Tuple, List, Literal, Any
 from copy import deepcopy
 
 """
@@ -190,7 +190,6 @@ class CostCollection:
             plt.tight_layout()
             return ax
 
-    
     def eval(self, x:float, y:float, *args, **kwargs) -> List[ float ]:
         return [cost(x, y, *args, **kwargs) for cost in self._collection]
 
@@ -204,7 +203,7 @@ class CostCollection:
     def __len__(self) -> int:
         return len(self._collection)
     
-    def __add__(self, new_cost: CostBase | CostCollection) -> "CostCollection":
+    def __add__(self, new_cost: Any) -> "CostCollection":
         self_copy = deepcopy(self)
         new_cost_copy = deepcopy(new_cost)
         if isinstance(new_cost_copy, CostCollection):
