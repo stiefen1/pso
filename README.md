@@ -13,6 +13,14 @@ A Python library implementing Particle Swarm Optimization (PSO) algorithm for op
 
 ## Installation
 
+### Conda
+Setup your own environment or use the provided env.yml file:
+```bash
+conda init
+conda env create -f env.yml
+```
+Then install PSO using one of the following methods.
+
 ### From source
 
 ```bash
