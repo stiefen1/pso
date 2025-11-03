@@ -1,14 +1,14 @@
 from abc import ABC, abstractmethod
-from collections.abc import Callable
 from pso.swarm import Swarm
-from pso.cost import CostBase
+from pso.cost import CostBase, CostCollection
 import numpy as np
+from typing import Tuple
 
 class PSOBase(ABC):
     """
     Abstract base class for Particle Swarm Optimization (PSO).
     """
-    def __init__(self, lim: tuple, n_particles: int = 10, max_iter: int = 100, inertia: float = 0.9, c_cognitive: float = 0.5, c_social: float = 0.3, stop_at_variance: float | None = None, lbx: np.ndarray | None = None, ubx: np.ndarray | None = None):
+    def __init__(self, lim: Tuple, n_particles: int = 10, max_iter: int = 100, inertia: float = 0.9, c_cognitive: float = 0.5, c_social: float = 0.3, stop_at_variance: float | None = None, lbx: np.ndarray | None = None, ubx: np.ndarray | None = None):
         """
         Initialize the PSO base class with given parameters.
         
@@ -19,7 +19,7 @@ class PSOBase(ABC):
         :param c_cognitive: Cognitive coefficient.
         :param c_social: Social coefficient.
         """
-        self._lim: tuple = lim
+        self._lim: Tuple = lim
         self._max_iter: int = max_iter
         self._inertia: float = inertia
         self._c_cognitive: float = c_cognitive
@@ -51,7 +51,7 @@ class PSO(PSOBase):
     """
     Concrete implementation of the PSO algorithm.
     """
-    def __init__(self, cost: CostBase, lim: tuple, n_particles: int = 10, max_iter: int = 100, inertia: float = 0.9, c_cognitive: float = 0.5, c_social: float = 0.3, stop_at_variance: float | None = None, lbx: np.ndarray | None = None, ubx: np.ndarray | None = None):
+    def __init__(self, cost: CostBase | CostCollection, lbx: Tuple, ubx: Tuple, n_particles: int = 10, max_iter: int = 100, inertia: float = 0.9, c_cognitive: float = 0.5, c_social: float = 0.3, stop_at_variance: float | None = None):
         """
         Initialize the PSO algorithm with given parameters.
         
@@ -63,9 +63,10 @@ class PSO(PSOBase):
         :param c_cognitive: Cognitive coefficient.
         :param c_social: Social coefficient.
         """
-        super().__init__(lim, n_particles, max_iter, inertia, c_cognitive, c_social)
-        self._cost_fn: CostBase = cost
-        self._swarm: Swarm = Swarm(cost, lim, n_particles, max_iter=max_iter, inertia=inertia, c_cognitive=c_cognitive, c_social=c_social, stop_at_variance=stop_at_variance, lbx=lbx, ubx=ubx)
+        assert isinstance(cost, CostBase) or isinstance(cost, CostCollection), f"cost must be an instance of either CostBase or CostCollection. Got type(cost)={type(cost)}."
+        super().__init__((lbx, ubx), n_particles, max_iter, inertia, c_cognitive, c_social)
+        self._cost_fn: CostCollection = CostCollection(cost) if isinstance(cost, CostBase) else cost
+        self._swarm: Swarm = Swarm(self._cost_fn, (lbx, ubx), n_particles, max_iter=max_iter, inertia=inertia, c_cognitive=c_cognitive, c_social=c_social, stop_at_variance=stop_at_variance)
 
     def optimize(self) -> None:
         """
@@ -88,3 +89,11 @@ class PSO(PSOBase):
         :return: Float representing the optimal cost.
         """
         return self._swarm.get_optimized_cost()
+    
+    @property
+    def swarm(self) -> Swarm:
+        return self._swarm
+    
+    @property
+    def cost_fn(self) -> CostCollection:
+        return self._cost_fn

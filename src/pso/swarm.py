@@ -1,12 +1,13 @@
 from utils import *
-from pso.cost import CostBase
+from pso.cost import CostBase, CostCollection
 from pso.particle import Particle
 import numpy as np
-from typing import Tuple
+from typing import Tuple, List, Literal
+from matplotlib.axes import Axes
 
 class Swarm:
     def __init__(self,
-                 cost: CostBase,
+                 cost: CostCollection,
                  lim: Tuple,
                  n_particles: int = 10,
                  initial_gbest_position: np.ndarray | None = None,
@@ -14,9 +15,7 @@ class Swarm:
                  inertia: float = 0.9,
                  c_cognitive: float = 0.5,
                  c_social: float = 0.3,
-                 stop_at_variance: float | None = None,
-                 lbx: np.ndarray | None = None,
-                 ubx: np.ndarray | None = None
+                 stop_at_variance: float | None = None
                 ):
         """
         Initialize a Swarm of n_particles particles within lim that should be optimized according to a cost.
@@ -33,35 +32,23 @@ class Swarm:
         - initial_gbest_position: np.ndarray
             Initial guess for the value to optimize.
         """
-        assert isinstance(cost, CostBase), "cost must be a CostBase object"
+        assert isinstance(cost, CostCollection), "cost must be a CostCollection object"
         is_lim_valid(lim)
-        self._cost_fn: CostBase = cost
+        self._cost_fn: CostCollection = cost
         self._lim: Tuple = lim
         self._dim: int = len(lim[0])
         self._n_particles: int = n_particles
         self._particles: list[Particle] = [Particle(lim) for _ in range(n_particles)]
         self._gbest_position: np.ndarray = get_sample_within_lim(lim) if initial_gbest_position is None else initial_gbest_position.copy()
-        self._gbest_cost: float = self.cost_fn(*self._gbest_position, total=True)[0]
+        self._gbest_cost: float = sum(self.cost_fn(*self._gbest_position))
         self._max_iter: int = max_iter
         self._inertia: float = inertia
         self._c_cognitive: float = c_cognitive
         self._c_social: float = c_social
         self._stop_at_variance_vector: float | np.ndarray = stop_at_variance*np.ones_like(self._gbest_position) if stop_at_variance is not None else 0.0
         self._iter = 0
-
-        if isinstance(lbx, np.ndarray):
-            self._lbx: np.ndarray = lbx
-        elif lbx is None:
-            self._lbx: np.ndarray = np.array(self._dim*[-np.inf])
-        else:
-            raise TypeError(f"lbx must be a numpy array, got {type(lbx).__name__}")
-        
-        if isinstance(ubx, np.ndarray):
-            self._ubx: np.ndarray = ubx
-        elif ubx is None:
-            self._ubx: np.ndarray = np.array(self._dim*[np.inf])
-        else:
-            raise TypeError(f"lbx must be a numpy array, got {type(ubx).__name__}")
+        # self._lbx = np.array(lim[0])
+        # self._ubx = np.array(lim[1])
 
     def optimize(self) -> None:
         """
@@ -110,8 +97,8 @@ class Swarm:
             Social weight used to update the velocity of each particle.
         """
         particle.update(inertia, c_cognitive, c_social, self._gbest_position) # Update the particle's velocity and position
-        particle._position = np.clip(particle._position, self._lbx, self._ubx)
-        particle.cost = self.cost_fn(*particle.position, total=True)[0] # Compute the cost of the particle
+        particle._position = np.clip(particle._position, self._lim[0], self._lim[1])
+        particle.cost = sum(self.cost_fn(*particle.position)) # Compute the cost of the particle
         particle.update_pbest()
         self.update_gbest(particle)
 
@@ -162,19 +149,19 @@ class Swarm:
         """
         return [particle.velocity for particle in self.particles]
 
-    def plot_vec_cost(self, grid_dim: Tuple = (20, 20), levels: int = 30, log_scale: bool = False, particles : bool = True, cost_to_use : Tuple | None = None, center : bool = False, **kwargs):
+    def plot_vec_cost(self, grid_dim: Tuple = (20, 20), levels: int = 30, log_scale: bool = False, particles : bool = True, center : bool = False, **kwargs):
         """
         See plot_cost_and_particles.
         """
-        return self.plot_cost_and_particles(grid_dim=grid_dim, total=False, levels=levels, log_scale=log_scale, particles=particles, cost_to_use=cost_to_use, center=center, **kwargs)
+        return self.plot_cost_and_particles(grid_dim=grid_dim, total=False, levels=levels, log_scale=log_scale, particles=particles, center=center, **kwargs)
 
-    def plot_total_cost(self, grid_dim: Tuple = (20, 20), levels: int = 30, log_scale: bool = False, particles: bool = True, cost_to_use : Tuple | None = None, center : bool = False, **kwargs):
+    def plot_total_cost(self, grid_dim: Tuple = (20, 20), levels: int = 30, log_scale: bool = False, particles: bool = True, center : bool = False, **kwargs):
         """
         See plot_cost_and_particles.
         """
-        return self.plot_cost_and_particles(grid_dim=grid_dim, total=True, levels=levels, log_scale=log_scale, particles=particles, cost_to_use=cost_to_use, center=center, **kwargs)
+        return self.plot_cost_and_particles(grid_dim=grid_dim, total=True, levels=levels, log_scale=log_scale, particles=particles, center=center, **kwargs)
 
-    def plot_cost_and_particles(self, grid_dim: Tuple = (20, 20), total: bool = True, levels: int = 30, log_scale: bool = False, particles: bool = True, verbose: bool | list[bool] = True, cost_to_use : Tuple | None = None, center : bool = False, lim : Tuple | None = None, best: bool = True, axs=None, **kwargs):
+    def plot_cost_and_particles(self, grid_dim: Tuple = (20, 20), total: bool = True, levels: int = 30, log_scale: bool = False, particles: bool = True, verbose: bool | list[bool] = True, center : bool = False, lim : Tuple | None = None, best: bool = True, axs: List[Axes] | None = None, display: Literal['vertical', 'horizontal'] = 'horizontal', **kwargs):
         """
         Plot the total cost function for the selected dimensions.
 
@@ -189,8 +176,7 @@ class Swarm:
         """
         lim = lim or self._lim
         center_of_plot = np.mean(lim, 0) if center else np.array([0., 0.])
-        total = total if cost_to_use is None else False
-        axs = self.cost_fn.plot(lim, grid_dim=grid_dim, total=total, levels=levels, log_scale=log_scale, verbose=verbose, cost_to_use=cost_to_use, offset=center_of_plot, axs=axs, **kwargs)
+        axs = self.cost_fn.plot(lim, grid_dim=grid_dim, total=total, levels=levels, log_scale=log_scale, verbose=verbose, offset=center_of_plot, axs=axs, display=display, **kwargs)
 
         if particles:
             self.plot_particles(axs, lim, center_of_plot=center_of_plot)
@@ -198,7 +184,7 @@ class Swarm:
             self.plot_best(axs, lim, center_of_plot=center_of_plot, total=total)
         return axs
     
-    def plot_particles(self, axs, lim, center_of_plot=np.array([0., 0.]), c='red', s=10):
+    def plot_particles(self, axs: List [Axes], lim: Tuple[ Tuple, Tuple ], center_of_plot: np.ndarray = np.array([0., 0.]), c: str = 'red', s: int = 10) -> List[Axes]:
         x0, y0 = lim[0]
         xf, yf = lim[1]
         for k in range(len(axs)):
@@ -206,19 +192,21 @@ class Swarm:
                 particle_position = np.array(particle.position) - center_of_plot
                 axs[k].scatter(*particle_position, c=c, s=s)
 
-            axs[k].set_xlim([x0, xf])
-            axs[k].set_ylim([y0, yf])
+            axs[k].set_xlim(x0, xf)
+            axs[k].set_ylim(y0, yf)
         return axs
     
-    def plot_best(self, axs, lim, center_of_plot=np.array([0., 0.]), total: bool = True):
+    def plot_best(self, axs: List[Axes], lim, center_of_plot=np.array([0., 0.]), total: bool = True) -> List[Axes]:
         x0, y0 = lim[0]
         xf, yf = lim[1]
         gbest_position = np.array(self._gbest_position) - center_of_plot
+        cost_coll = self.cost_fn(*self._gbest_position)
         for k in range(len(axs)):
             axs[k].scatter(*gbest_position, c='red', marker='x')
-            axs[k].text(*gbest_position, f"{self.cost_fn(*self._gbest_position, total=total)[k]:.3f}", c='red')
-            axs[k].set_xlim([x0, xf])
-            axs[k].set_ylim([y0, yf])
+            cost = sum(cost_coll) if total else cost_coll[k] 
+            axs[k].text(gbest_position[0], gbest_position[1], f"{cost:.3f}", c='red')
+            axs[k].set_xlim(x0, xf)
+            axs[k].set_ylim(y0, yf)
         return axs
 
     @property
@@ -257,18 +245,18 @@ class Swarm:
         return self._particles
 
     @property
-    def cost_fn(self) -> CostBase:
+    def cost_fn(self) -> CostCollection:
         """
         Get the cost function.
         """
         return self._cost_fn
 
     @cost_fn.setter
-    def cost_fn(self, value: CostBase):
+    def cost_fn(self, value: CostCollection):
         """
         Set the cost function.
         """
-        assert isinstance(value, CostBase)
+        assert isinstance(value, CostCollection)
         self._cost_fn = value
 
     @property
@@ -279,7 +267,7 @@ class Swarm:
         return self._dim
     
     @property
-    def iter(self) -> int:
+    def n_iter(self) -> int:
         """
         Get the current number of optimization iterations
         """

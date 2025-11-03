@@ -32,22 +32,23 @@ pip install -e .[dev]
 ## Quick Start
 
 ```python
-from pso import PSO
-import numpy as np
+from pso import PSO, CostBase
 
-# Define a simple optimization problem (minimize x^2 + y^2)
-def cost_function(position):
-    return np.sum(position**2)
+class QuadOpt(CostBase):
+    def eval(self, x:float, y:float, *args, **kwargs) -> float:
+        return np.min([(x+3)**2 + (y+3)**2, (x-3)**2 + (y-3)**2])
 
 # Create PSO optimizer
 optimizer = PSO(
-    cost=cost_function,
-    lim=(-10, 10),  # Search space limits
-    n_particles=30,
-    max_iter=100,
-    inertia=0.9,
-    c_cognitive=0.5,
-    c_social=0.3
+    cost=QuadOpt(),
+    lbx=(-10, -10),
+    ubx=(10, 10), # Search space limits
+    n_particles=50,
+    max_iter=300,
+    inertia=0.6,
+    c_cognitive=0.1,
+    c_social=0.3,
+    stop_at_variance=1e-6
 )
 
 # Run optimization
@@ -56,23 +57,20 @@ optimizer.optimize()
 # Get results
 best_position = optimizer.get_optimal_position()
 best_cost = optimizer.get_optimal_cost()
-
-print(f"Best position: {best_position}")
-print(f"Best cost: {best_cost}")
 ```
 
 ## Parameters
 
 - `cost`: Cost function to minimize
-- `lim`: Tuple defining search space limits
+- `lbx`: Lower bound array for each dimension
+- `ubx`: Upper bound array for each dimension
 - `n_particles`: Number of particles in the swarm (default: 10)
 - `max_iter`: Maximum number of iterations (default: 100)
 - `inertia`: Inertia coefficient (default: 0.9)
 - `c_cognitive`: Cognitive coefficient (default: 0.5)
 - `c_social`: Social coefficient (default: 0.3)
 - `stop_at_variance`: Optional variance threshold for early stopping
-- `lbx`: Lower bound array for each dimension
-- `ubx`: Upper bound array for each dimension
+
 
 ## Requirements
 
