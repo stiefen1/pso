@@ -18,6 +18,7 @@ Setup your own environment or use the provided env.yml file:
 ```bash
 conda init
 conda env create -f env.yml
+conda activate pso
 ```
 Then install PSO using one of the following methods.
 
