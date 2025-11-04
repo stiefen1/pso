@@ -161,7 +161,7 @@ class Swarm:
         """
         return self.plot_cost_and_particles(grid_dim=grid_dim, total=True, levels=levels, log_scale=log_scale, particles=particles, center=center, **kwargs)
 
-    def plot_cost_and_particles(self, grid_dim: Tuple = (20, 20), total: bool = True, levels: int = 30, log_scale: bool = False, particles: bool = True, verbose: bool | list[bool] = True, center : bool = False, lim : Tuple | None = None, best: bool = True, axs: List[Axes] | None = None, display: Literal['vertical', 'horizontal'] = 'horizontal', **kwargs):
+    def plot_cost_and_particles(self, grid_dim: Tuple = (20, 20), total: bool = True, levels: int = 30, log_scale: bool = False, particles: bool = True, verbose: bool | list[bool] = True, center : bool = False, lim : Tuple | None = None, best: bool = True, axs: List[Axes] | None = None, display: Literal['vertical', 'horizontal'] = 'horizontal', **kwargs) -> List[Axes]:
         """
         Plot the total cost function for the selected dimensions.
 
